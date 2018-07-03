@@ -3,3 +3,5 @@ ElasticHotels.Data/bin
 ElasticHotels.API/obj
 ElasticHotels.API/bin
 .vs
+ElasticParties.Console/bin
+ElasticParties.Console/obj
