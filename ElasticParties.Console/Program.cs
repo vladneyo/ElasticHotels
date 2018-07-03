@@ -8,6 +8,7 @@ using ElasticParties.Data.Models;
 using Newtonsoft.Json.Serialization;
 using System.Collections.Generic;
 using System.Text;
+using ElasticParties.CLI.Commands;
 
 namespace ElasticParties.CLI
 {
@@ -15,23 +16,38 @@ namespace ElasticParties.CLI
     {
         static void Main(string[] args)
         {
-            Console.OutputEncoding = Encoding.UTF8;
-            Console.WriteLine("Search Results:");
-            Task.Run(() => MainAsync()).GetAwaiter();
+            Task.Run(() => MainAsync()).Wait();
             Console.ReadKey();
         }
 
         static async void MainAsync()
         {
-            var httpClient = new HttpClient();
-            var content = await httpClient.GetStringAsync(string.Format(GoogleConstants.SearchPlacesLinkPattern, 50.0268781, 36.2205936, 5000, "bar", "bar", GoogleConstants.GooglePlacesAPIKey));
-            var json = await Task.Run(() => JObject.Parse(content));
-            
-            var places = JsonConvert.DeserializeObject<List<Place>>(json.Property("results").Value.ToString(), new JsonSerializerSettings { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
-            foreach (var place in places)
+            int command = 0;
+            do
             {
-                Console.WriteLine(place.Name);
+                Console.OutputEncoding = Encoding.UTF8;
+                Console.WriteLine("----------------------------------");
+                Console.WriteLine("1 - Retrieve and show data");
+                Console.WriteLine("2 - Show data from Elastic");
+                Console.WriteLine("3 - Fill Elastic");
+                Console.WriteLine("0 - Exit");
+                command = int.Parse(Console.ReadLine());
+                Console.WriteLine("----------------------------------");
+
+                switch (command)
+                {
+                    case 1:
+                        await new RetrieveDataCommand().Invoke();
+                        break;
+                    case 2:
+                        await new ShowElasticCollection().Invoke();
+                        break;
+                    case 3:
+                        await new FillElasticCommand().Invoke();
+                        break;
+                }
             }
+            while (command != 0);
         }
     }
 }
