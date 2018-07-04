@@ -14,7 +14,8 @@ namespace ElasticParties.CLI.Commands
         {
             var node = new Uri(ElasticConstants.Endpoint);
             var settings = new ConnectionSettings(node);
-            var client = new ElasticClient(settings);
+            var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName).Ignore(i => i.PlaceId));
+            var client = new ElasticClient(index);
 
             var res = await client.IndexExistsAsync(Indices.Index(ElasticConstants.PlacesCollectionName));
             if (!res.Exists)
@@ -22,8 +23,11 @@ namespace ElasticParties.CLI.Commands
                 Console.WriteLine("Index does not exist");
             }
 
+            var count = client.Count<Place>();
+
             var result = await client.SearchAsync<Place>(x => x
-                .AllIndices());
+                .Index<Place>()
+                .Take((int)count.Count));
 
             foreach(var place in result.Documents)
             {

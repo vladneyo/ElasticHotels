@@ -7,6 +7,6 @@ namespace ElasticParties.Data.Constants
     public class ElasticConstants
     {
         public const string Endpoint = @"http://localhost:9200";
-        public const string PlacesCollectionName = "party";
+        public const string PlacesCollectionName = "place";
     }
 }

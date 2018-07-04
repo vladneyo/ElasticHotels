@@ -17,10 +17,18 @@ namespace ElasticParties.CLI.Commands
     {
         public async Task Invoke()
         {
+            Console.WriteLine("Search Results:");
+            List<Place> places = await GetDataAsync();
+            foreach (var place in places)
+            {
+                Console.WriteLine(place.Name);
+            }
+        }
+
+        public static async Task<List<Place>> GetDataAsync()
+        {
             using (var httpClient = new HttpClient())
             {
-                Console.WriteLine("Search Results:");
-
                 List<Place> places = new List<Place>();
                 foreach (var place in PlaceTypes.Places)
                 {
@@ -36,11 +44,7 @@ namespace ElasticParties.CLI.Commands
                             }
                         }));
                 }
-
-                foreach (var place in places)
-                {
-                    Console.WriteLine(place.Name);
-                }
+                return places;
             }
         }
     }

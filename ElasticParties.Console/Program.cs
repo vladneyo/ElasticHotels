@@ -17,10 +17,11 @@ namespace ElasticParties.CLI
         static void Main(string[] args)
         {
             Task.Run(() => MainAsync()).Wait();
+            Console.WriteLine("Done");
             Console.ReadKey();
         }
 
-        static async void MainAsync()
+        static async Task MainAsync()
         {
             int command = 0;
             do
@@ -30,6 +31,7 @@ namespace ElasticParties.CLI
                 Console.WriteLine("1 - Retrieve and show data");
                 Console.WriteLine("2 - Show data from Elastic");
                 Console.WriteLine("3 - Fill Elastic");
+                Console.WriteLine("4 - Delete collection in Elastic");
                 Console.WriteLine("0 - Exit");
                 command = int.Parse(Console.ReadLine());
                 Console.WriteLine("----------------------------------");
@@ -44,6 +46,9 @@ namespace ElasticParties.CLI
                         break;
                     case 3:
                         await new FillElasticCommand().Invoke();
+                        break;
+                    case 4:
+                        await new CleanElasticCommand().Invoke();
                         break;
                 }
             }
