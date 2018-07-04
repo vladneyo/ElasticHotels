@@ -12,15 +12,17 @@ namespace ElasticParties.Data.Constants
         public const string Casino = "casino";
         public const string LiquorStore = "liquor_store";
         public const string NightClub = "night_club";
+        public const string Spa = "spa";
 
         public static readonly Dictionary<string, string> Places = new Dictionary<string, string>
         {
-            { AmusementPark, AmusementPark },
-            { Bar, Bar },
-            { Cafe, Cafe },
-            { Casino, Casino },
-            { LiquorStore, LiquorStore },
-            { NightClub, NightClub }
+            { AmusementPark, "парк" },
+            { Bar, "bar pub" },
+            { Cafe, "кафе" },
+            { Casino, "казино" },
+            { LiquorStore, "" },
+            { NightClub, "клуб стриптиз массаж" },
+            { Spa, "спа массаж сауна" }
         };
     }
 }

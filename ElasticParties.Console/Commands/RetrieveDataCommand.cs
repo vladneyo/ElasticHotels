@@ -19,6 +19,7 @@ namespace ElasticParties.CLI.Commands
         {
             Console.WriteLine("Search Results:");
             List<Place> places = await GetDataAsync();
+            Console.WriteLine($"Total: {places.Count}");
             foreach (var place in places)
             {
                 Console.WriteLine(place.Name);
@@ -32,7 +33,7 @@ namespace ElasticParties.CLI.Commands
                 List<Place> places = new List<Place>();
                 foreach (var place in PlaceTypes.Places)
                 {
-                    var content = await httpClient.GetStringAsync(string.Format(GoogleConstants.SearchPlacesLinkPattern, 50.0268781, 36.2205936, 200000, place.Value, place.Value, GoogleConstants.GooglePlacesAPIKey));
+                    var content = await httpClient.GetStringAsync(string.Format(GoogleConstants.SearchPlacesLinkPattern, 50.0268781, 36.2205936, 200000, place.Key, place.Value, GoogleConstants.GooglePlacesAPIKey));
                     var json = await Task.Run(() => JObject.Parse(content));
 
                     places.AddRange(JsonConvert.DeserializeObject<List<Place>>(json.Property("results").Value.ToString(),
