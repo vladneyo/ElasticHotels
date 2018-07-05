@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ElasticParties.Data", "Elas
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElasticParties.CLI", "ElasticParties.Console\ElasticParties.CLI.csproj", "{EE0080AC-0832-4594-8797-BFDA34CE4E3A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElasticParties.Services", "ElasticParties.Services\ElasticParties.Services.csproj", "{F1F9C107-23C6-4542-8998-EFD7CD2C5359}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{EE0080AC-0832-4594-8797-BFDA34CE4E3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EE0080AC-0832-4594-8797-BFDA34CE4E3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EE0080AC-0832-4594-8797-BFDA34CE4E3A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F1F9C107-23C6-4542-8998-EFD7CD2C5359}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1F9C107-23C6-4542-8998-EFD7CD2C5359}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1F9C107-23C6-4542-8998-EFD7CD2C5359}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1F9C107-23C6-4542-8998-EFD7CD2C5359}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

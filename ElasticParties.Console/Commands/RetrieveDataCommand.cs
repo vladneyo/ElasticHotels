@@ -1,4 +1,5 @@
 ﻿using ElasticParties.Data.Constants;
+using ElasticParties.Data.Converters;
 using ElasticParties.Data.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -35,15 +36,16 @@ namespace ElasticParties.CLI.Commands
                 {
                     var content = await httpClient.GetStringAsync(string.Format(GoogleConstants.SearchPlacesLinkPattern, 50.0268781, 36.2205936, 200000, place.Key, place.Value, GoogleConstants.GooglePlacesAPIKey));
                     var json = await Task.Run(() => JObject.Parse(content));
-
-                    places.AddRange(JsonConvert.DeserializeObject<List<Place>>(json.Property("results").Value.ToString(),
-                        new JsonSerializerSettings
+                    var jSettings = new JsonSerializerSettings
+                    {
+                        ContractResolver = new DefaultContractResolver
                         {
-                            ContractResolver = new DefaultContractResolver
-                            {
-                                NamingStrategy = new SnakeCaseNamingStrategy()
-                            }
-                        }));
+                            NamingStrategy = new SnakeCaseNamingStrategy(),
+                        }
+                    };
+                    jSettings.Converters.Add(new LocationConverter());
+                    
+                    places.AddRange(JsonConvert.DeserializeObject<List<Place>>(json.Property("results").Value.ToString(), jSettings));
                 }
                 return places;
             }

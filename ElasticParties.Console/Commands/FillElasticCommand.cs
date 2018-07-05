@@ -26,7 +26,11 @@ namespace ElasticParties.CLI.Commands
                 Console.WriteLine("Index does not exist");
                 var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName).Ignore(i => i.PlaceId));
                 client = new ElasticClient(index);
-                var indexCreate = await client.CreateIndexAsync(IndexName.From<Place>());
+                
+                var indexCreate = await client.CreateIndexAsync(IndexName.From<Place>(), i =>
+                        i.Mappings(m => 
+                            m.Map<Place>(mp => 
+                            mp.AutoMap())));
                 if (!indexCreate.Acknowledged)
                 {
                     Console.WriteLine("Error while creating index");
@@ -34,11 +38,11 @@ namespace ElasticParties.CLI.Commands
                 }
                 Console.WriteLine("Index created");
             }
-            
+
             var places = await RetrieveDataCommand.GetDataAsync();
             var bulkResponse = client.Bulk(b =>
                 {
-                    
+
                     places.ForEach(p => b.Index<Place>(i => i.Document(p)));
                     return b;
                 });

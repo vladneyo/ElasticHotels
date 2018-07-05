@@ -29,6 +29,7 @@ namespace ElasticParties.CLI.Commands
                 .Index<Place>()
                 .Take((int)count.Count));
 
+            Console.WriteLine($"Total: {result.Documents.Count}");
             foreach(var place in result.Documents)
             {
                 Console.WriteLine(place.Name);
