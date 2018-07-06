@@ -14,7 +14,7 @@ namespace ElasticParties.CLI.Commands
         {
             var node = new Uri(ElasticConstants.Endpoint);
             var settings = new ConnectionSettings(node);
-            var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName).Ignore(i => i.PlaceId));
+            var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName));
             var client = new ElasticClient(index);
 
             var res = await client.IndexExistsAsync(Indices.Index(ElasticConstants.PlacesCollectionName));

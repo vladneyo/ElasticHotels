@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace ElasticParties.CLI.Commands
 {
@@ -24,13 +25,25 @@ namespace ElasticParties.CLI.Commands
             if (!existsResponse.Exists)
             {
                 Console.WriteLine("Index does not exist");
-                var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName).Ignore(i => i.PlaceId));
+                var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName));
                 client = new ElasticClient(index);
-                
+
                 var indexCreate = await client.CreateIndexAsync(IndexName.From<Place>(), i =>
-                        i.Mappings(m => 
-                            m.Map<Place>(mp => 
-                            mp.AutoMap())));
+                        i.Mappings(m =>
+                            m.Map<Place>(mp =>
+                            mp.AutoMap()
+                            .Properties(p =>
+                                p.Text(t => t.Fielddata(true)
+                                    .Name(n => n.Name))
+                                .Text(t => t.Fielddata(true)
+                                    .Name(n => n.PlaceId))
+                                .Text(t => t.Fielddata(true)
+                                    .Name(n => n.Vicinity))
+                                .Text(t => t.Fielddata(true)
+                                    .Name(n => n.Types)
+                                    .Fielddata(true))
+                                )
+                            )));
                 if (!indexCreate.Acknowledged)
                 {
                     Console.WriteLine("Error while creating index");

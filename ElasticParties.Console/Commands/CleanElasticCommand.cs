@@ -19,7 +19,7 @@ namespace ElasticParties.CLI.Commands
             var existsResponse = await client.IndexExistsAsync(Indices.Index(ElasticConstants.PlacesCollectionName));
             if (existsResponse.Exists)
             {
-                var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName).Ignore(i => i.PlaceId));
+                var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName));
                 client = new ElasticClient(index);
                 var indexDelete = await client.DeleteIndexAsync(IndexName.From<Place>());
                 if (!indexDelete.Acknowledged)
