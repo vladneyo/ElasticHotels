@@ -21,6 +21,7 @@ namespace ElasticParties.API.Controllers
         }
 
         [HttpGet]
+        [Route("bestaround")]
         public async Task<IActionResult> BestPlacesAround(int distance, double lat, double lng, bool descRates, bool descDistance, bool openedOnly)
         {
             return Ok(await new ElasticService().GetBestPlacesAround(distance, lat, lng, descRates, descDistance, openedOnly));
