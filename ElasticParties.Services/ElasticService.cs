@@ -24,7 +24,7 @@ namespace ElasticParties.Services
                 .Query(x => 
                     x.Bool(b => 
                         b.Must(
-                            m => m.Term(t => t.Field("types").Value(type)), 
+                            m => m.Term(t => t.Field(f => f.Types).Value(type)), 
                             m => m.GeoDistance(g =>
                                 g.Distance(new Distance(distance, DistanceUnit.Kilometers))
                                 .Location(lat, lng)
@@ -47,7 +47,7 @@ namespace ElasticParties.Services
             return ToNearestPlaces(results.Hits);
         }
 
-        public async Task<List<BestPlaceAround>> GetBestPlacesAround(int distance, double lat, double lng, bool descRates, bool descDistance, bool openedOnly)
+        public async Task<List<BestPlaceAround>> GetBestPlacesAround(int distance, double lat, double lng, bool descRates, bool openedOnly)
         {
             var client = GetClient();
             var searchDescriptor = new SearchDescriptor<Place>();
@@ -60,7 +60,7 @@ namespace ElasticParties.Services
                 .Query(x => 
                     x.Bool(b => 
                         b.Must(
-                            m => m.Term(t => t.Field("openingHours.openNow").Value(openedOnly)),
+                            m => m.Term(t => t.Field(f => f.OpeningHours.OpenNow).Value(openedOnly)),
                             m => m.GeoDistance(g =>
                                 g.Distance(new Distance(distance, DistanceUnit.Kilometers))
                                 .Location(lat, lng)
@@ -86,9 +86,41 @@ namespace ElasticParties.Services
             return ToBestPlacesAround(results.Hits);
         }
 
-        public Task<object> Search(string queryString, double lat, double lng, bool descRates, bool descDistance)
+        public async Task<object> Search(string queryString, double lat, double lng, bool descRates)
         {
-            return null;
+            var client = GetClient();
+            var searchDescriptor = new SearchDescriptor<Place>();
+            var dumper = new NestDescriptorDumper(client.RequestResponseSerializer);
+
+            Func<SortDescriptor<Place>, SortDescriptor<Place>> SortByGeo =
+                (SortDescriptor<Place> s) => s.GeoDistance(g =>
+                                        g.Field(f => f.Geometry.Location)
+                                            .DistanceType(GeoDistanceType.Arc)
+                                            .Unit(DistanceUnit.Kilometers)
+                                            .Order(SortOrder.Ascending)
+                                            .Points(new GeoLocation(lat, lng)));
+
+            searchDescriptor
+                .Index<Place>()
+                .Query(x =>
+                    x.Bool(b =>
+                        b.Should(
+                            q => q.Match(m => m.Field(f => f.Name).Query(queryString)),
+                            q => q.Match(m => m.Field(f => f.Vicinity).Query(queryString))
+                        )
+                    ))
+                .Sort(s => SortByGeo(descRates ? s.Descending(d => d.Rating) : s))
+                .ScriptFields(x =>
+                    x.ScriptField("distance", s => s.Source($"doc['geometry.location'].arcDistance({lat},{lng})")))
+                .Take(10)
+                .Source(true)
+                ;
+
+            var sss = dumper.Dump<SearchDescriptor<Place>>(searchDescriptor);
+
+            var results = await client.SearchAsync<Place>(searchDescriptor);
+
+            return ToBestPlacesAround(results.Hits);
         }
 
         private ElasticClient GetClient()
