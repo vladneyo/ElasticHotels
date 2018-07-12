@@ -123,6 +123,105 @@ namespace ElasticParties.Services
             return ToBestPlacesAround(results.Hits);
         }
 
+        public async Task CleanElastic(Action<string> output)
+        {
+            var node = new Uri(ElasticConstants.Endpoint);
+            var settings = new ConnectionSettings(node);
+            var client = new ElasticClient(settings);
+
+            var existsResponse = await client.IndexExistsAsync(Indices.Index(ElasticConstants.PlacesCollectionName));
+            if (existsResponse.Exists)
+            {
+                var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName));
+                client = new ElasticClient(index);
+                var indexDelete = await client.DeleteIndexAsync(IndexName.From<Place>());
+                if (!indexDelete.Acknowledged)
+                {
+                    output?.Invoke("Error while deleting index");
+                    return;
+                }
+                output?.Invoke("Index deleted");
+            }
+        }
+
+        public async Task FillElastic(Action<string> output)
+        {
+            var node = new Uri(ElasticConstants.Endpoint);
+            var settings = new ConnectionSettings(node);
+            var client = new ElasticClient(settings);
+
+            var existsResponse = await client.IndexExistsAsync(Indices.Index(ElasticConstants.PlacesCollectionName));
+            if (!existsResponse.Exists)
+            {
+                output?.Invoke("Index does not exist");
+                var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName));
+                client = new ElasticClient(index);
+
+                var indexCreate = await client.CreateIndexAsync(IndexName.From<Place>(), i =>
+                        i.Mappings(m =>
+                            m.Map<Place>(mp =>
+                            mp.AutoMap()
+                            .Properties(p =>
+                                p.Text(t => t.Fielddata(true)
+                                    .Name(n => n.Name))
+                                .Text(t => t.Fielddata(true)
+                                    .Name(n => n.PlaceId))
+                                .Text(t => t.Fielddata(true)
+                                    .Name(n => n.Vicinity))
+                                .Text(t => t.Fielddata(true)
+                                    .Name(n => n.Types)
+                                    .Fielddata(true))
+                                )
+                            )));
+                if (!indexCreate.Acknowledged)
+                {
+                    output?.Invoke("Error while creating index");
+                    return;
+                }
+                output?.Invoke("Index created");
+            }
+
+            var places = await new GooglePlacesService().GetDataAsync();
+            var bulkResponse = client.Bulk(b =>
+            {
+
+                places.ForEach(p => b.Index<Place>(i => i.Document(p)));
+                return b;
+            });
+            if (bulkResponse.Errors)
+            {
+                foreach (var e in bulkResponse.ItemsWithErrors)
+                {
+                    output?.Invoke($"{e.Error.Index} - { e.Error.Reason}");
+                }
+            }
+            output?.Invoke("Filled");
+        }
+
+        public async Task ShowElastic(Action<string> output)
+        {
+            var client = GetClient();
+
+            var res = await client.IndexExistsAsync(Indices.Index(ElasticConstants.PlacesCollectionName));
+            if (!res.Exists)
+            {
+                output?.Invoke("Index does not exist");
+                return;
+            }
+
+            var count = client.Count<Place>();
+
+            var result = await client.SearchAsync<Place>(x => x
+                .Index<Place>()
+                .Take((int)count.Count));
+
+            output?.Invoke($"Total: {result.Documents.Count}");
+            foreach (var place in result.Documents)
+            {
+                output?.Invoke(place.Name);
+            }
+        }
+
         private ElasticClient GetClient()
         {
             var node = new Uri(ElasticConstants.Endpoint);

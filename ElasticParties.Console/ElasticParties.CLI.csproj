@@ -6,12 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NEST" Version="6.2.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\ElasticHotels.Data\ElasticParties.Data.csproj" />
+    <ProjectReference Include="..\ElasticParties.Services\ElasticParties.Services.csproj" />
   </ItemGroup>
 
 </Project>
