@@ -86,7 +86,7 @@ namespace ElasticParties.Services
             return ToBestPlacesAround(results.Hits);
         }
 
-        public async Task<object> Search(string queryString, double lat, double lng, bool descRates)
+        public async Task<List<SearchPlace>> Search(string queryString, double lat, double lng, bool descRates)
         {
             var client = GetClient();
             var searchDescriptor = new SearchDescriptor<Place>();
@@ -100,27 +100,29 @@ namespace ElasticParties.Services
                                             .Order(SortOrder.Ascending)
                                             .Points(new GeoLocation(lat, lng)));
 
-            searchDescriptor
-                .Index<Place>()
-                .Query(x =>
-                    x.Bool(b =>
+            QueryContainerDescriptor<Place> queryContainer = new QueryContainerDescriptor<Place>();
+            var query = queryContainer.Bool(b =>
                         b.Should(
                             q => q.Match(m => m.Field(f => f.Name).Query(queryString)),
                             q => q.Match(m => m.Field(f => f.Vicinity).Query(queryString))
                         )
-                    ))
+                    );
+            
+            searchDescriptor
+                .Index<Place>()
+                .Query(x => query)
                 .Sort(s => SortByGeo(descRates ? s.Descending(d => d.Rating) : s))
                 .ScriptFields(x =>
                     x.ScriptField("distance", s => s.Source($"doc['geometry.location'].arcDistance({lat},{lng})")))
                 .Take(10)
                 .Source(true)
                 ;
-
+            
             var sss = dumper.Dump<SearchDescriptor<Place>>(searchDescriptor);
 
             var results = await client.SearchAsync<Place>(searchDescriptor);
 
-            return ToBestPlacesAround(results.Hits);
+            return ToSearchPlaces(results.Hits);
         }
 
         public async Task CleanElastic(Action<string> output)
@@ -256,6 +258,25 @@ namespace ElasticParties.Services
             foreach (var hit in hits)
             {
                 list.Add(new BestPlaceAround
+                {
+                    Id = hit.Source.Id,
+                    Name = hit.Source.Name,
+                    OpeningHours = hit.Source.OpeningHours,
+                    Rating = hit.Source.Rating,
+                    Types = hit.Source.Types,
+                    Vicinity = hit.Source.Vicinity,
+                    Distance = Math.Round(hit.Fields.Value<double>("distance"), 2, MidpointRounding.AwayFromZero)
+                });
+            }
+            return list;
+        }
+
+        private List<SearchPlace> ToSearchPlaces(IEnumerable<IHit<Place>> hits)
+        {
+            var list = new List<SearchPlace>();
+            foreach (var hit in hits)
+            {
+                list.Add(new SearchPlace
                 {
                     Id = hit.Source.Id,
                     Name = hit.Source.Name,
