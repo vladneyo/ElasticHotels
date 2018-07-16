@@ -21,10 +21,10 @@ namespace ElasticParties.Services
 
             searchDescriptor
                 .Index<Place>()
-                .Query(x => 
-                    x.Bool(b => 
+                .Query(x =>
+                    x.Bool(b =>
                         b.Must(
-                            m => m.Term(t => t.Field(f => f.Types).Value(type)), 
+                            m => m.Term(t => t.Field(f => f.Types).Value(type)),
                             m => m.GeoDistance(g =>
                                 g.Distance(new Distance(distance, DistanceUnit.Kilometers))
                                 .Location(lat, lng)
@@ -34,7 +34,7 @@ namespace ElasticParties.Services
                 .ScriptFields(x =>
                     x.ScriptField("distance", s => s.Source($"doc['geometry.location'].arcDistance({lat},{lng})")))
                 .Source(true)
-                .DocValueFields(d => 
+                .DocValueFields(d =>
                     d.Field(f => f.Name)
                     .Field(f => f.Vicinity)
                     .Field(f => f.Types))
@@ -57,8 +57,8 @@ namespace ElasticParties.Services
 
             searchDescriptor
                 .Index<Place>()
-                .Query(x => 
-                    x.Bool(b => 
+                .Query(x =>
+                    x.Bool(b =>
                         b.Must(
                             m => m.Term(t => t.Field(f => f.OpeningHours.OpenNow).Value(openedOnly)),
                             m => m.GeoDistance(g =>
@@ -86,7 +86,7 @@ namespace ElasticParties.Services
             return ToBestPlacesAround(results.Hits);
         }
 
-        public async Task<List<SearchPlace>> Search(string queryString, double lat, double lng, bool descRates)
+        public async Task<object> Search(string queryString, double lat, double lng, bool descRates)
         {
             var client = GetClient();
             var searchDescriptor = new SearchDescriptor<Place>();
@@ -107,17 +107,19 @@ namespace ElasticParties.Services
                             q => q.Match(m => m.Field(f => f.Vicinity).Query(queryString))
                         )
                     );
-            
+
+            Func<SortDescriptor<Place>, IPromise<IList<ISort>>> sort = s => SortByGeo(descRates ? s.Descending(SortSpecialField.Score).Descending(d => d.Rating) : s.Descending(SortSpecialField.Score));
+
             searchDescriptor
                 .Index<Place>()
                 .Query(x => query)
-                .Sort(s => SortByGeo(descRates ? s.Descending(d => d.Rating) : s))
+                .Sort(sort)
                 .ScriptFields(x =>
                     x.ScriptField("distance", s => s.Source($"doc['geometry.location'].arcDistance({lat},{lng})")))
                 .Take(10)
                 .Source(true)
                 ;
-            
+
             var sss = dumper.Dump<SearchDescriptor<Place>>(searchDescriptor);
 
             var results = await client.SearchAsync<Place>(searchDescriptor);
@@ -227,7 +229,7 @@ namespace ElasticParties.Services
         private ElasticClient GetClient()
         {
             var node = new Uri(ElasticConstants.Endpoint);
-            var settings = new ConnectionSettings(node);            
+            var settings = new ConnectionSettings(node);
             var index = settings.DefaultMappingFor<Place>(x => x.IndexName(ElasticConstants.PlacesCollectionName));
             var client = new ElasticClient(index);
             return client;
