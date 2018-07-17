@@ -33,5 +33,19 @@ namespace ElasticParties.API.Controllers
         {
             return Ok(await new ElasticService().Search(queryString, lat, lng, descRates));
         }
+
+        [HttpGet]
+        [Route("aggr")]
+        public async Task<IActionResult> Aggregation(double lat, double lng)
+        {
+            return Ok(await new ElasticService().Aggregation(lat, lng));
+        }
+
+        [HttpGet]
+        [Route("termvectors")]
+        public async Task<IActionResult> TermVectors(double lat, double lng)
+        {
+            return Ok(await new ElasticService().TermVectors(lat, lng));
+        }
     }
 }

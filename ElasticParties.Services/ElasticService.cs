@@ -86,19 +86,11 @@ namespace ElasticParties.Services
             return ToBestPlacesAround(results.Hits);
         }
 
-        public async Task<object> Search(string queryString, double lat, double lng, bool descRates)
+        public async Task<List<SearchPlace>> Search(string queryString, double lat, double lng, bool descRates)
         {
             var client = GetClient();
             var searchDescriptor = new SearchDescriptor<Place>();
             var dumper = new NestDescriptorDumper(client.RequestResponseSerializer);
-
-            Func<SortDescriptor<Place>, SortDescriptor<Place>> SortByGeo =
-                (SortDescriptor<Place> s) => s.GeoDistance(g =>
-                                        g.Field(f => f.Geometry.Location)
-                                            .DistanceType(GeoDistanceType.Arc)
-                                            .Unit(DistanceUnit.Kilometers)
-                                            .Order(SortOrder.Ascending)
-                                            .Points(new GeoLocation(lat, lng)));
 
             QueryContainerDescriptor<Place> queryContainer = new QueryContainerDescriptor<Place>();
             var query = queryContainer.Bool(b =>
@@ -108,6 +100,14 @@ namespace ElasticParties.Services
                         )
                     );
 
+            Func<SortDescriptor<Place>, SortDescriptor<Place>> SortByGeo =
+                (SortDescriptor<Place> s) => s.GeoDistance(g =>
+                                        g.Field(f => f.Geometry.Location)
+                                            .DistanceType(GeoDistanceType.Arc)
+                                            .Unit(DistanceUnit.Kilometers)
+                                            .Order(SortOrder.Ascending)
+                                            .Points(new GeoLocation(lat, lng)));
+
             Func<SortDescriptor<Place>, IPromise<IList<ISort>>> sort = s => SortByGeo(descRates ? s.Descending(SortSpecialField.Score).Descending(d => d.Rating) : s.Descending(SortSpecialField.Score));
 
             searchDescriptor
@@ -116,6 +116,53 @@ namespace ElasticParties.Services
                 .Sort(sort)
                 .ScriptFields(x =>
                     x.ScriptField("distance", s => s.Source($"doc['geometry.location'].arcDistance({lat},{lng})")))
+                .Take(10)
+                .Source(true)
+                ;
+
+            var sss = dumper.Dump<SearchDescriptor<Place>>(searchDescriptor);
+
+            var results = await client.SearchAsync<Place>(searchDescriptor);
+
+            return ToSearchPlaces(results.Hits);
+        }
+
+        public async Task<object> Aggregation(double lat, double lng)
+        {
+            var client = GetClient();
+            var searchDescriptor = new SearchDescriptor<Place>();
+            var dumper = new NestDescriptorDumper(client.RequestResponseSerializer);
+
+            searchDescriptor.Aggregations(aggs =>
+                    aggs.Children<Place>("child", child =>
+                        child.Aggregations(caggs =>
+                            caggs.Max("max", max => max.Field(f => f.Rating)))
+                            ));
+
+            var results = await client.SearchAsync<Place>(searchDescriptor);
+
+            var sss = dumper.Dump<SearchDescriptor<Place>>(searchDescriptor);
+
+            return results.Aggregations.Children("child").Max("max");
+        }
+
+        public async Task<object> TermVectors(string queryString)
+        {
+            var client = GetClient();
+            var searchDescriptor = new SearchDescriptor<Place>();
+            var dumper = new NestDescriptorDumper(client.RequestResponseSerializer);
+
+            QueryContainerDescriptor<Place> queryContainer = new QueryContainerDescriptor<Place>();
+            var query = queryContainer.Bool(b =>
+                        b.Should(
+                            q => q.Match(m => m.Field(f => f.Name).Query(queryString)),
+                            q => q.Match(m => m.Field(f => f.Vicinity).Query(queryString))
+                        )
+                    );
+
+            searchDescriptor
+                .Index<Place>()
+                .Query(x => query)
                 .Take(10)
                 .Source(true)
                 ;
@@ -167,10 +214,12 @@ namespace ElasticParties.Services
                             mp.AutoMap()
                             .Properties(p =>
                                 p.Text(t => t.Fielddata(true)
+                                    .TermVector(TermVectorOption.WithPositionsOffsetsPayloads)
                                     .Name(n => n.Name))
                                 .Text(t => t.Fielddata(true)
                                     .Name(n => n.PlaceId))
                                 .Text(t => t.Fielddata(true)
+                                    .TermVector(TermVectorOption.WithPositionsOffsetsPayloads)
                                     .Name(n => n.Vicinity))
                                 .Text(t => t.Fielddata(true)
                                     .Name(n => n.Types)
