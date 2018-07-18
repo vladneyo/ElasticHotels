@@ -43,9 +43,9 @@ namespace ElasticParties.API.Controllers
 
         [HttpGet]
         [Route("termvectors")]
-        public async Task<IActionResult> TermVectors(double lat, double lng)
+        public async Task<IActionResult> TermVectors(string queryString, double lat, double lng)
         {
-            return Ok(await new ElasticService().TermVectors(lat, lng));
+            return Ok(await new ElasticService().TermVectors(queryString, lat, lng));
         }
     }
 }

@@ -6,6 +6,7 @@ using Elasticsearch.Net;
 using Nest;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -146,12 +147,13 @@ namespace ElasticParties.Services
             return results.Aggregations.Children("child").Max("max");
         }
 
-        public async Task<object> TermVectors(string queryString)
+        public async Task<TermVectorsModel> TermVectors(string queryString, double lat, double lng)
         {
             var client = GetClient();
             var searchDescriptor = new SearchDescriptor<Place>();
             var dumper = new NestDescriptorDumper(client.RequestResponseSerializer);
 
+            #region Search
             QueryContainerDescriptor<Place> queryContainer = new QueryContainerDescriptor<Place>();
             var query = queryContainer.Bool(b =>
                         b.Should(
@@ -160,18 +162,41 @@ namespace ElasticParties.Services
                         )
                     );
 
+            Func<SortDescriptor<Place>, SortDescriptor<Place>> SortByGeo =
+                (SortDescriptor<Place> s) => s.GeoDistance(g =>
+                                        g.Field(f => f.Geometry.Location)
+                                            .DistanceType(GeoDistanceType.Arc)
+                                            .Unit(DistanceUnit.Kilometers)
+                                            .Order(SortOrder.Ascending)
+                                            .Points(new GeoLocation(lat, lng)));
+
+            Func<SortDescriptor<Place>, IPromise<IList<ISort>>> sort = s => SortByGeo(s.Descending(SortSpecialField.Score).Descending(d => d.Rating));
+
             searchDescriptor
                 .Index<Place>()
                 .Query(x => query)
+                .Sort(sort)
+                .ScriptFields(x =>
+                    x.ScriptField("distance", s => s.Source($"doc['geometry.location'].arcDistance({lat},{lng})")))
                 .Take(10)
                 .Source(true)
                 ;
-
-            var sss = dumper.Dump<SearchDescriptor<Place>>(searchDescriptor);
+            #endregion
 
             var results = await client.SearchAsync<Place>(searchDescriptor);
+            var model = ToSearchPlaces(results.Hits).First();
 
-            return ToSearchPlaces(results.Hits);
+            var term = new TermVectorsDescriptor<Place>(IndexName.From<Place>(), TypeName.From<Place>());
+            term.Index<Place>()
+                .Id(Id.From(model))
+                .Fields(tf => tf.Vicinity, tf => tf.Name)
+                ;
+
+            var sss = dumper.Dump<TermVectorsDescriptor<Place>>(term);
+
+            var termVectorsResult = await client.TermVectorsAsync<Place>(term);
+
+            return ToTermVectorsModel(termVectorsResult, model);
         }
 
         public async Task CleanElastic(Action<string> output)
@@ -339,6 +364,15 @@ namespace ElasticParties.Services
                 });
             }
             return list;
+        }
+
+        private TermVectorsModel ToTermVectorsModel(ITermVectorsResponse termVectorsResult, SearchPlace doc)
+        {
+            return new TermVectorsModel()
+            {
+                Document = doc,
+                TermVectors = termVectorsResult.TermVectors
+            };
         }
     }
 }
