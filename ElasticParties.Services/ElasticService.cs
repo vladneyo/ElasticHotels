@@ -134,17 +134,21 @@ namespace ElasticParties.Services
             var searchDescriptor = new SearchDescriptor<Place>();
             var dumper = new NestDescriptorDumper(client.RequestResponseSerializer);
 
-            searchDescriptor.Aggregations(aggs =>
-                    aggs.Children<Place>("child", child =>
-                        child.Aggregations(caggs =>
-                            caggs.Max("max", max => max.Field(f => f.Rating)))
-                            ));
+            var maxRating = "maxRating";
+            var minDistance = "minDistance";
+
+            searchDescriptor
+                .Aggregations(aggs =>
+                    aggs
+                    .Max(maxRating, max => max.Field(f => f.Rating))
+                    .Min(minDistance, min => min.Script($"doc['geometry.location'].arcDistance({lat},{lng})"))
+                );
 
             var results = await client.SearchAsync<Place>(searchDescriptor);
 
             var sss = dumper.Dump<SearchDescriptor<Place>>(searchDescriptor);
 
-            return results.Aggregations.Children("child").Max("max");
+            return results.Aggregations;
         }
 
         public async Task<TermVectorsModel> TermVectors(string queryString, double lat, double lng)
