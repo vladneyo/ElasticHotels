@@ -7,3 +7,5 @@ ElasticParties.Console/bin
 ElasticParties.Console/obj
 ElasticParties.Services/bin
 ElasticParties.Services/obj
+ElasticParties.Lucene.Data/bin
+ElasticParties.Lucene.Data/obj
