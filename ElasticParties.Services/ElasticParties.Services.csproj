@@ -11,7 +11,9 @@
     <PackageReference Include="Lucene.Net.Linq" Version="3.6.0" />
     <PackageReference Include="NEST" Version="6.2.0" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="Remotion.Linq" Version="1.15.9" />
     <PackageReference Include="Spatial4n.Core" Version="0.3.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.5.0" />
   </ItemGroup>
 
   <ItemGroup>

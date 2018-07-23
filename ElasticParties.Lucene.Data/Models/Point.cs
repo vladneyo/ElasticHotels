@@ -4,8 +4,9 @@ using System.Text;
 
 namespace ElasticParties.Lucene.Data.Models
 {
-    public class Geometry
+    public class Point
     {
-        public Point Location { get; set; }
+        public double Lat { get; set; }
+        public double Lon { get; set; }
     }
 }
