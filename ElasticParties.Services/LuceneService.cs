@@ -9,7 +9,12 @@ using Lucene.Net.Documents;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers;
 using Lucene.Net.Search;
+using Lucene.Net.Spatial.Queries;
+using Lucene.Net.Spatial.Vector;
 using Lucene.Net.Store;
+using Spatial4n.Core.Context;
+using Spatial4n.Core.Distance;
+using Spatial4n.Core.Shapes;
 
 namespace ElasticParties.Services
 {
@@ -29,11 +34,25 @@ namespace ElasticParties.Services
             {
                 using(var analyzer = new StandardAnalyzer(Lucene.Net.Util.Version.LUCENE_30))
                 {
-                    var queryParser = new QueryParser(Lucene.Net.Util.Version.LUCENE_30, "Types", analyzer);
-                    var query = queryParser.Parse(type);
+                    var typesQueryParser = new QueryParser(Lucene.Net.Util.Version.LUCENE_30, "Types", analyzer);
+                    var typesQuery = typesQueryParser.Parse(type);
+                    
+                    var ctx = SpatialContext.GEO;
+
+                    var point = ctx.MakePoint(1, 2);
+                    var calc = ctx.GetDistCalc();
+                    calc.Distance(point, point);
+
+                    var spatialArgs = new SpatialArgs(SpatialOperation.Intersects, point);
+
+                    var distanceQuery = new PointVectorStrategy(ctx, "dist-").MakeQueryDistanceScore(spatialArgs);
+
+                    var boolQuery = new BooleanQuery();
+
+                    boolQuery.Combine(new Query[] { typesQuery, distanceQuery } );
                     var collector = TopScoreDocCollector.Create(1000, true);
 
-                    searcher.Search(query, collector);
+                    searcher.Search(boolQuery, collector);
 
                     var matches = collector.TopDocs();
                     var result = new List<Place>();
@@ -107,7 +126,7 @@ namespace ElasticParties.Services
             place.Types = doc.GetValues("Types");
 
             var loc = doc.GetField("Geometry.Location").StringValue;
-            place.Geometry.Location = new Nest.GeoLocation(double.Parse(loc.Substring(0, loc.IndexOf(","))), double.Parse(loc.Substring(loc.IndexOf(",") + 1, loc.Length - loc.IndexOf(",") - 1)));
+            place.Geometry.Location = new Nest.GeoLocation(GetLat(loc), GetLon(loc));
 
             bool open = false;
             if (bool.TryParse(doc.GetField("OpeningHours.OpenNow").StringValue, out open))
@@ -120,6 +139,16 @@ namespace ElasticParties.Services
             }
 
             return place;
+        }
+
+        private double GetLat(string location)
+        {
+            return double.Parse(location.Substring(0, location.IndexOf(",")));
+        }
+
+        private double GetLon(string location)
+        {
+            return double.Parse(location.Substring(location.IndexOf(",") + 1, location.Length - location.IndexOf(",") - 1));
         }
     }
 }
