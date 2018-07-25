@@ -9,3 +9,5 @@ ElasticParties.Services/bin
 ElasticParties.Services/obj
 ElasticParties.Lucene.Data/bin
 ElasticParties.Lucene.Data/obj
+ElasticParties.Lucene.Search/bin
+ElasticParties.Lucene.Search/obj

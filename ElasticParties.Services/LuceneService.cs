@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using ElasticParties.Data.Models;
+using ElasticParties.Lucene.Data.Extensions;
+using ElasticParties.Lucene.Search.Queries;
 using Lucene.Net;
 using Lucene.Net.Analysis.Standard;
 using Lucene.Net.Documents;
@@ -15,16 +17,12 @@ using Lucene.Net.Store;
 using Spatial4n.Core.Context;
 using Spatial4n.Core.Distance;
 using Spatial4n.Core.Shapes;
+using Util = Lucene.Net.Util;
 
 namespace ElasticParties.Services
 {
     public class LuceneService
     {
-        void main()
-        {
-            //Spatial4n.Core.Context.SpatialContext.GEO.MakePoint()
-        }
-
         public async Task<object> GetNearest(string type, double lat, double lng, int distance)
         {
             var index = await CreateIndex(await new GooglePlacesService().GetDataAsync());
@@ -32,27 +30,25 @@ namespace ElasticParties.Services
             using (var reader = IndexReader.Open(index, true))
             using (var searcher = new IndexSearcher(reader))
             {
-                using(var analyzer = new StandardAnalyzer(Lucene.Net.Util.Version.LUCENE_30))
+                using (var analyzer = new StandardAnalyzer(Util.Version.LUCENE_30))
                 {
-                    var typesQueryParser = new QueryParser(Lucene.Net.Util.Version.LUCENE_30, "Types", analyzer);
+                    var typesQueryParser = new QueryParser(Util.Version.LUCENE_30, "Types", analyzer);
                     var typesQuery = typesQueryParser.Parse(type);
-                    
+
                     var ctx = SpatialContext.GEO;
 
-                    var point = ctx.MakePoint(1, 2);
-                    var calc = ctx.GetDistCalc();
-                    calc.Distance(point, point);
+                    var origin = ctx.MakePoint(lat, lng);
 
-                    var spatialArgs = new SpatialArgs(SpatialOperation.Intersects, point);
+                    var distanceQuery = new DistanceCustomScoreQuery(typesQuery, ctx, origin, distance);
 
-                    var distanceQuery = new PointVectorStrategy(ctx, "dist-").MakeQueryDistanceScore(spatialArgs);
+                    //var boolQuery = new BooleanQuery();
+                    //boolQuery.Clauses.Add(new BooleanClause(typesQuery, Occur.MUST));
+                    //boolQuery.Clauses.Add(new BooleanClause(distanceQuery, Occur.MUST));
 
-                    var boolQuery = new BooleanQuery();
-
-                    boolQuery.Combine(new Query[] { typesQuery, distanceQuery } );
+                    //boolQuery.Combine(new Query[] { typesQuery, distanceQuery });
                     var collector = TopScoreDocCollector.Create(1000, true);
 
-                    searcher.Search(boolQuery, collector);
+                    searcher.Search(distanceQuery, collector);
 
                     var matches = collector.TopDocs();
                     var result = new List<Place>();
@@ -72,10 +68,10 @@ namespace ElasticParties.Services
 
         public async Task<Directory> CreateIndex(List<Place> places)
         {
-            
+
             var dir = new RAMDirectory();
 
-            using (var analyzer = new StandardAnalyzer(Lucene.Net.Util.Version.LUCENE_30))
+            using (var analyzer = new StandardAnalyzer(Util.Version.LUCENE_30))
             using (var writter = new IndexWriter(dir, analyzer, IndexWriter.MaxFieldLength.UNLIMITED))
             {
                 foreach (var place in places)
@@ -126,7 +122,7 @@ namespace ElasticParties.Services
             place.Types = doc.GetValues("Types");
 
             var loc = doc.GetField("Geometry.Location").StringValue;
-            place.Geometry.Location = new Nest.GeoLocation(GetLat(loc), GetLon(loc));
+            place.Geometry.Location = new Nest.GeoLocation(loc.GetLat(), loc.GetLon());
 
             bool open = false;
             if (bool.TryParse(doc.GetField("OpeningHours.OpenNow").StringValue, out open))
@@ -139,16 +135,6 @@ namespace ElasticParties.Services
             }
 
             return place;
-        }
-
-        private double GetLat(string location)
-        {
-            return double.Parse(location.Substring(0, location.IndexOf(",")));
-        }
-
-        private double GetLon(string location)
-        {
-            return double.Parse(location.Substring(location.IndexOf(",") + 1, location.Length - location.IndexOf(",") - 1));
         }
     }
 }

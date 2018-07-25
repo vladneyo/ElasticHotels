@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ElasticHotels.Data\ElasticParties.Data.csproj" />
+    <ProjectReference Include="..\ElasticParties.Lucene.Data\ElasticParties.Lucene.Data.csproj" />
+    <ProjectReference Include="..\ElasticParties.Lucene.Search\ElasticParties.Lucene.Search.csproj" />
   </ItemGroup>
 
   <ItemGroup>
