@@ -1,4 +1,5 @@
 ﻿using ElasticParties.Lucene.Data.Extensions;
+using ElasticParties.Lucene.Search.Helpers;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Search.Function;
@@ -37,6 +38,7 @@ namespace ElasticParties.Lucene.Search.Queries
             private readonly SpatialContext _ctx;
             private readonly Point _origin;
             private readonly double _distance;
+            private readonly CustomDistanceCalculator _distanceCalculator;
 
             public DistranceCustomScoreProvider(IndexReader reader, SpatialContext ctx, Point origin, double distance) : base(reader)
             {
@@ -44,15 +46,13 @@ namespace ElasticParties.Lucene.Search.Queries
                 _ctx = ctx;
                 _origin = origin;
                 _distance = distance;
+                this._distanceCalculator = new CustomDistanceCalculator();
             }
 
             public override float CustomScore(int doc, float subQueryScore, float valSrcScore)
             {
                 var document = _reader.Document(doc);
-                var point = document.GetPoint(_ctx);
-                var calc = _ctx.GetDistCalc();
-                var distance = calc.Distance(_origin, point);
-                var distanceKm = DistanceUtils.Degrees2Dist(distance, DistanceUtils.EARTH_EQUATORIAL_RADIUS_KM);
+                var distanceKm = _distanceCalculator.Calculate(_ctx, document, _origin);
                 if (distanceKm < _distance)
                 {
                     // the smaller the distance - the bigger the score

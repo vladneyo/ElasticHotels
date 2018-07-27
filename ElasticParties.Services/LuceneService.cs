@@ -1,23 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using ElasticParties.Data.Dtos;
 using ElasticParties.Data.Models;
 using ElasticParties.Lucene.Data.Extensions;
+using ElasticParties.Lucene.Search.Helpers;
 using ElasticParties.Lucene.Search.Queries;
-using Lucene.Net;
 using Lucene.Net.Analysis.Standard;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers;
 using Lucene.Net.Search;
-using Lucene.Net.Spatial.Queries;
-using Lucene.Net.Spatial.Vector;
 using Lucene.Net.Store;
 using Spatial4n.Core.Context;
-using Spatial4n.Core.Distance;
-using Spatial4n.Core.Shapes;
-using Util = Lucene.Net.Util;
+using LuceneNet = Lucene.Net;
 
 namespace ElasticParties.Services
 {
@@ -30,35 +25,37 @@ namespace ElasticParties.Services
             using (var reader = IndexReader.Open(index, true))
             using (var searcher = new IndexSearcher(reader))
             {
-                using (var analyzer = new StandardAnalyzer(Util.Version.LUCENE_30))
+                using (var analyzer = new StandardAnalyzer(LuceneNet.Util.Version.LUCENE_30))
                 {
-                    var typesQueryParser = new QueryParser(Util.Version.LUCENE_30, "Types", analyzer);
-                    var typesQuery = typesQueryParser.Parse(type);
-
                     var ctx = SpatialContext.GEO;
-
                     var origin = ctx.MakePoint(lat, lng);
+                    var distanceCalculator = new CustomDistanceCalculator();
+
+                    var typesQueryParser = new QueryParser(LuceneNet.Util.Version.LUCENE_30, "Types", analyzer);
+                    var typesQuery = typesQueryParser.Parse(type);
 
                     var distanceQuery = new DistanceCustomScoreQuery(typesQuery, ctx, origin, distance);
 
-                    //var boolQuery = new BooleanQuery();
-                    //boolQuery.Clauses.Add(new BooleanClause(typesQuery, Occur.MUST));
-                    //boolQuery.Clauses.Add(new BooleanClause(distanceQuery, Occur.MUST));
+                    //var bQuery = new BooleanQuery();
+                    //bQuery.Add(typesQuery, Occur.MUST);
+                    //bQuery.Add(distanceQuery, Occur.MUST);
 
-                    //boolQuery.Combine(new Query[] { typesQuery, distanceQuery });
                     var collector = TopScoreDocCollector.Create(1000, true);
+                    var posCollector = new PositiveScoresOnlyCollector(collector);
 
-                    searcher.Search(distanceQuery, collector);
+                    searcher.Search(distanceQuery, posCollector);
 
                     var matches = collector.TopDocs();
-                    var result = new List<Place>();
+                    var result = new List<NearestPlace>();
 
                     foreach (var match in matches.ScoreDocs)
                     {
                         var id = match.Doc;
                         var doc = searcher.Doc(id);
 
-                        result.Add(DocToPlace(doc));
+                        var nearestPlace = DocToNearestPlace(doc);
+                        nearestPlace.Distance = distanceCalculator.Calculate(ctx, doc, origin, true);
+                        result.Add(nearestPlace);
                     }
 
                     return result;
@@ -71,7 +68,7 @@ namespace ElasticParties.Services
 
             var dir = new RAMDirectory();
 
-            using (var analyzer = new StandardAnalyzer(Util.Version.LUCENE_30))
+            using (var analyzer = new StandardAnalyzer(LuceneNet.Util.Version.LUCENE_30))
             using (var writter = new IndexWriter(dir, analyzer, IndexWriter.MaxFieldLength.UNLIMITED))
             {
                 foreach (var place in places)
@@ -108,21 +105,18 @@ namespace ElasticParties.Services
             return doc;
         }
 
-        private Place DocToPlace(Document doc)
+        private NearestPlace DocToNearestPlace(Document doc)
         {
-            var place = new Place();
-            place.Geometry = new Geometry();
+            var place = new NearestPlace();
             place.OpeningHours = new OpeningHours();
 
             place.Id = doc.GetField("Id").StringValue;
             place.Name = doc.GetField("Name").StringValue;
-            place.PlaceId = doc.GetField("PlaceId").StringValue;
             place.Rating = double.Parse(doc.GetField("Rating").StringValue);
             place.Vicinity = doc.GetField("Vicinity").StringValue;
             place.Types = doc.GetValues("Types");
 
             var loc = doc.GetField("Geometry.Location").StringValue;
-            place.Geometry.Location = new Nest.GeoLocation(loc.GetLat(), loc.GetLon());
 
             bool open = false;
             if (bool.TryParse(doc.GetField("OpeningHours.OpenNow").StringValue, out open))
