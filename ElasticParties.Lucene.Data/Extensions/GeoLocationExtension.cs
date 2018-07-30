@@ -1,4 +1,5 @@
-﻿using Lucene.Net.Documents;
+﻿using ElasticParties.Lucene.Data.Constants;
+using Lucene.Net.Documents;
 using Spatial4n.Core.Context;
 using Spatial4n.Core.Shapes;
 using System;
@@ -11,7 +12,7 @@ namespace ElasticParties.Lucene.Data.Extensions
     {
         public static Point GetPoint(this Document doc, SpatialContext ctx)
         {
-            var location = doc.GetField("Geometry.Location").StringValue;
+            var location = doc.GetField(Schema.Location).StringValue;
             return ctx.MakePoint(GetLat(location), GetLon(location));
         }
 

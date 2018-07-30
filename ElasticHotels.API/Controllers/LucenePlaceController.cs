@@ -18,5 +18,12 @@ namespace ElasticParties.API.Controllers
         {
             return Ok(await new LuceneService().GetNearest(type, lat, lng, distance));
         }
+
+        [HttpGet]
+        [Route("bestaround")]
+        public async Task<IActionResult> BestPlacesAround(int distance, double lat, double lng, bool descRates, bool openedOnly)
+        {
+            return Ok(await new LuceneService().GetBestPlacesAround(distance, lat, lng, descRates, openedOnly));
+        }
     }
 }
