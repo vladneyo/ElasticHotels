@@ -21,9 +21,16 @@ namespace ElasticParties.API.Controllers
 
         [HttpGet]
         [Route("bestaround")]
-        public async Task<IActionResult> BestPlacesAround(int distance, double lat, double lng, bool descRates, bool openedOnly)
+        public async Task<IActionResult> BestPlacesAround(int distance, double lat, double lng, bool openedOnly)
         {
-            return Ok(await new LuceneService().GetBestPlacesAround(distance, lat, lng, descRates, openedOnly));
+            return Ok(await new LuceneService().GetBestPlacesAround(distance, lat, lng, openedOnly));
+        }
+
+        [HttpGet]
+        [Route("search")]
+        public async Task<IActionResult> Search(string queryString, double lat, double lng)
+        {
+            return Ok(await new LuceneService().Search(queryString, lat, lng));
         }
     }
 }

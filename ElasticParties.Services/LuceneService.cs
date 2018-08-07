@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using ElasticParties.Data.Dtos;
 using ElasticParties.Data.Models;
@@ -60,7 +61,7 @@ namespace ElasticParties.Services
             }
         }
 
-        public async Task<List<BestPlaceAround>> GetBestPlacesAround(int distance, double lat, double lng, bool descRates, bool openedOnly)
+        public async Task<List<BestPlaceAround>> GetBestPlacesAround(int distance, double lat, double lng, bool openedOnly)
         {
             var index = await CreateIndex(await new GooglePlacesService().GetDataAsync());
 
@@ -78,15 +79,11 @@ namespace ElasticParties.Services
 
                     var distanceQuery = new DistanceCustomScoreQuery(openNowQuery, ctx, origin, distance);
 
-                    var sort = new Sort();
-                    sort.SetSort(new SortField[] 
-                    {
-                        SortField.FIELD_SCORE,
-                        new SortField(Schema.Rating, SortField.DOUBLE, descRates)
-                    });
+                    var collector = TopScoreDocCollector.Create(1000, true);
+                    var posCollector = new PositiveScoresOnlyCollector(collector);
 
-                    var matches = searcher.Search(distanceQuery, null, 100, sort);
-
+                    searcher.Search(distanceQuery, posCollector);
+                    var matches = collector.TopDocs();
                     var result = new List<BestPlaceAround>();
 
                     foreach (var match in matches.ScoreDocs)
@@ -94,10 +91,73 @@ namespace ElasticParties.Services
                         var id = match.Doc;
                         var doc = searcher.Doc(id);
 
-                        var nearestPlace = DocToBestPlaceAround(doc);
-                        nearestPlace.Distance = distanceCalculator.Calculate(ctx, doc, origin, true);
-                        result.Add(nearestPlace);
+                        var bestPlace = DocToBestPlaceAround(doc);
+                        bestPlace.Distance = distanceCalculator.Calculate(ctx, doc, origin, true);
+                        result.Add(bestPlace);
                     }
+
+                    return result;
+                }
+            }
+        }
+
+        public async Task<List<SearchPlace>> Search(string queryString, double lat, double lng)
+        {
+            var index = await CreateIndex(await new GooglePlacesService().GetDataAsync());
+
+            using (var reader = IndexReader.Open(index, true))
+            using (var searcher = new IndexSearcher(reader))
+            {
+                using (var analyzer = new StandardAnalyzer(LuceneNet.Util.Version.LUCENE_30))
+                {
+                    var ctx = SpatialContext.GEO;
+                    var origin = ctx.MakePoint(lat, lng);
+                    var distanceCalculator = new CustomDistanceCalculator();
+
+                    var queryParser = new MultiFieldQueryParser(LuceneNet.Util.Version.LUCENE_30, new[] { Schema.Name, Schema.Vicinity }, analyzer);
+                    queryParser.DefaultOperator = QueryParser.Operator.OR;
+                    var query = queryParser.Parse(queryString);
+
+                    var collector = TopScoreDocCollector.Create(1000, true);
+                    var posCollector = new PositiveScoresOnlyCollector(collector);
+
+                    searcher.Search(query, posCollector);
+
+                    var matches = collector.TopDocs();
+                    var result = new List<SearchPlace>();
+
+                    foreach (var match in matches.ScoreDocs)
+                    {
+                        var id = match.Doc;
+                        var doc = searcher.Doc(id);
+
+                        var searchPlace = DocToSearchPlace(doc);
+                        searchPlace.Distance = distanceCalculator.Calculate(ctx, doc, origin, true);
+                        result.Add(searchPlace);
+                    }
+
+                    var map = new Dictionary<int, SearchPlace>();
+                    for (int i = 0; i < matches.ScoreDocs.Length; i++)
+                    {
+                        map.Add(matches.ScoreDocs[i].Doc, result[i]);
+                    }
+
+                    var intermediate = map
+                        .Join(matches.ScoreDocs, left => left.Key, right => right.Doc, (left, right) => new { left, right })
+                        .OrderByDescending(x => x.right.Score);
+
+                    var bothMatched = intermediate.Where(x => x.right.Score > 1);
+                    var oneMatched = intermediate.Where(x => x.right.Score < 1);
+
+                    result = new List<SearchPlace>();
+                    result.AddRange(bothMatched
+                            .OrderBy(x => x.left.Value.Distance)
+                            .Select(x => x.left.Value)
+                            .ToList());
+                    result.AddRange(oneMatched
+                            .OrderBy(x => x.left.Value.Distance)
+                            .Select(x => x.left.Value)
+                            .ToList());
 
                     return result;
                 }
@@ -173,6 +233,30 @@ namespace ElasticParties.Services
         private BestPlaceAround DocToBestPlaceAround(Document doc)
         {
             var place = new BestPlaceAround();
+            place.OpeningHours = new OpeningHours();
+
+            place.Id = doc.GetField(Schema.Id).StringValue;
+            place.Name = doc.GetField(Schema.Name).StringValue;
+            place.Rating = double.Parse(doc.GetField(Schema.Rating).StringValue);
+            place.Vicinity = doc.GetField(Schema.Vicinity).StringValue;
+            place.Types = doc.GetValues(Schema.Types);
+
+            bool open = false;
+            if (bool.TryParse(doc.GetField(Schema.OpenNow).StringValue, out open))
+            {
+                place.OpeningHours.OpenNow = open;
+            }
+            else
+            {
+                place.OpeningHours.OpenNow = false;
+            }
+
+            return place;
+        }
+
+        private SearchPlace DocToSearchPlace(Document doc)
+        {
+            var place = new SearchPlace();
             place.OpeningHours = new OpeningHours();
 
             place.Id = doc.GetField(Schema.Id).StringValue;
