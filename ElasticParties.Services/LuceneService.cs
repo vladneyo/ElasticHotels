@@ -170,6 +170,34 @@ namespace ElasticParties.Services
             return await Task.FromResult("NotImplemented");
         }
 
+        public async Task<List<Lucene.Data.Dtos.TermVectorsModel>> TermVectors(string queryString, double lat, double lng)
+        {
+            var index = await CreateIndex(await new GooglePlacesService().GetDataAsync());
+
+            using (var reader = IndexReader.Open(index, true))
+            using (var tvEnum = new TermVectorEnumerator(reader, Schema.Vicinity))
+            {
+                var tvResult = new List<Lucene.Data.Dtos.TermVectorsModel>();
+                foreach (var item in tvEnum)
+                {
+                    var terms = item.GetTerms();
+                    var termsCount = terms.Length;
+                    var model = new Lucene.Data.Dtos.TermVectorsModel();
+                    model.TermVector = item;
+                    for (int i = 0; i < termsCount; i++)
+                    {
+                        model.Terms.Add(terms[i], new Lucene.Data.Dtos.TermInfo
+                        {
+                            Index = item.IndexOf(terms[i]),
+                            TermFrequency = item.GetTermFrequencies()[item.IndexOf(terms[i])]
+                        });
+                    }
+                    tvResult.Add(model);
+                }
+                return tvResult;
+            }
+        }
+
         public async Task<Directory> CreateIndex(List<Place> places)
         {
 

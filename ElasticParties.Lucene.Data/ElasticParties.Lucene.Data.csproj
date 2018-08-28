@@ -10,4 +10,8 @@
     <PackageReference Include="Lucene.Net.Contrib.Spatial" Version="3.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ElasticHotels.Data\ElasticParties.Data.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -39,5 +39,12 @@ namespace ElasticParties.API.Controllers
         {
             return Ok(await new LuceneService().Aggregation(lat, lng));
         }
+
+        [HttpGet]
+        [Route("termvectors")]
+        public async Task<IActionResult> TermVectors(string queryString, double lat, double lng)
+        {
+            return Ok(await new LuceneService().TermVectors(queryString, lat, lng));
+        }
     }
 }
