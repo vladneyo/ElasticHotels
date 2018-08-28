@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ElasticParties.Data.Dtos;
@@ -162,6 +163,11 @@ namespace ElasticParties.Services
                     return result;
                 }
             }
+        }
+
+        public async Task<object> Aggregation(double lat, double lng)
+        {
+            return await Task.FromResult("NotImplemented");
         }
 
         public async Task<Directory> CreateIndex(List<Place> places)

@@ -32,5 +32,12 @@ namespace ElasticParties.API.Controllers
         {
             return Ok(await new LuceneService().Search(queryString, lat, lng));
         }
+
+        [HttpGet]
+        [Route("aggr")]
+        public async Task<IActionResult> Aggregation(double lat, double lng)
+        {
+            return Ok(await new LuceneService().Aggregation(lat, lng));
+        }
     }
 }
